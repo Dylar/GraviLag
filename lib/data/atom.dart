@@ -6,66 +6,69 @@ import 'package:flutter/material.dart';
 import 'package:gravilag/ui/draw_shape.dart';
 
 class Atom extends SpriteComponent {
-  static Atom random() {
+
+  static Atom random(int id) {
     var rnd = Random();
     final pos = Vector2(rnd.nextDouble() * 1000, rnd.nextDouble() * 1000);
-    final velo = Vector2(rnd.nextDouble() * 10, rnd.nextDouble() * 10);
-    return Atom(position: pos, velocity: velo);
+    final velo =
+        Vector2(10.0 - rnd.nextDouble() * 20, 10.0 - rnd.nextDouble() * 20);
+    return Atom(id: id, position: pos, velocity: velo);
   }
 
-  final double radius = 1.0;
+  int id;
+  double radius;
   Vector2 velocity;
   double updateRate = 1.0;
 
   DateTime? lastCollisionTime;
-  Color color = Colors.green;
+  double collisionTimer = 0.0;
+  Sprite? greenSprite;
+  Sprite? redSprite;
 
   Atom({
+    required this.id,
     required Vector2 position,
     required this.velocity,
+    this.radius = 10.0,
   }) : super(
           position: position,
-          size: Vector2.all(2 * 5.0),
+          size: Vector2.all(2 * radius),
         );
 
   @override
   Future<void> onLoad() async {
-    final img = await createCircleImage(radius, Colors.grey);
-    sprite = Sprite(img);
+    redSprite = Sprite(await createCircleImage(
+      radius,
+      Colors.red,
+      id.toString(),
+    ));
+    greenSprite = Sprite(await createCircleImage(
+      radius,
+      Colors.green,
+      id.toString(),
+    ));
+    sprite = greenSprite;
     size = Vector2.all(radius * 2);
   }
 
-  @override
-  void render(Canvas canvas) {
-    paint.color = color;
-    super.render(canvas);
-  }
-
-  @override
-  void update(double dt) {
+  void updateAtoms(double dt, Rect boundary) {
     super.update(dt);
-
-    // Aktualisiere die Position basierend auf Geschwindigkeit und updateRate
     position += velocity * updateRate * dt;
-
-    // spawn on the other side
-    if (position.x < 0) position.x += 1000;
-    if (position.x > 1000) position.x -= 1000;
-    if (position.y < 0) position.y += 1000;
-    if (position.y > 1000) position.y -= 1000;
-
-    updateColor();
+    _spawnOnOtherSide(boundary);
+    _updateColor(dt);
   }
 
-  void updateColor() {
-    if (lastCollisionTime != null) {
-      final difference = DateTime.now().difference(lastCollisionTime!).inMilliseconds;
-      if (difference < 500) {
-        color = Colors.red;
-      } else {
-        color = Colors.green;
-        lastCollisionTime = null; // Setze es zurück, um zukünftige Checks zu vermeiden
-      }
+  void _updateColor(double dt) {
+    if (collisionTimer > 0.0) {
+      collisionTimer -= dt;
+      sprite = collisionTimer > 0 ? redSprite : greenSprite;
     }
+  }
+
+  void _spawnOnOtherSide(Rect boundary) {
+    if (position.x < 0) position.x += boundary.width;
+    if (position.x > boundary.width) position.x -= boundary.width;
+    if (position.y < 0) position.y += boundary.height;
+    if (position.y > boundary.height) position.y -= boundary.height;
   }
 }
